@@ -334,10 +334,16 @@ def do_run(args):
             f.flush()
             results.append(rec)
             print(f"    -> {result} {detail}")
+            if result == "NEEDS_LOGIN":
+                print("\n[x] STOPPED: the Luma session is gone (laptop slept, "
+                      "or the cookie expired).")
+                print("    Everything already done is saved in registration_log.csv.")
+                print("    Sign in again, then re-run — it resumes where it stopped.")
+                break
             if result == "RATELIMIT":
                 print("    ... rate limited, cooling off 90s")
                 time.sleep(90)
-            time.sleep(args.delay + random.uniform(0, 2.5))
+            time.sleep(args.delay + random.uniform(0, 1.5))
         ctx.close()
     f.close()
 
@@ -348,16 +354,54 @@ def do_run(args):
     print(f"\nfull log: {LOG}")
 
 
+def logged_out(pg):
+    """True when Luma is showing us the anonymous page.
+
+    A signed-out page still renders a Register button, but clicking it only
+    opens a login wall — so every event after the session dies is pure waste.
+    Detect it and stop instead.
+    """
+    try:
+        for a in pg.query_selector_all("a[href^='/signin'], a[href*='luma.com/signin']"):
+            if a.is_visible() and norm(a.inner_text()) in ("sign in", "log in"):
+                return True
+    except Exception:
+        pass
+    head = body_text(pg)[:90]
+    return "discover events sign in" in head or head.startswith("sign in")
+
+
+def settle(pg, timeout=7.0):
+    """Wait for the page to become actionable: a CTA, or a done / sold-out mark.
+
+    Replaces a blind 2.5s sleep. Most Luma pages are ready in about a second;
+    slow ones get the full budget instead of always paying for it.
+    Returns (state, detail, btn, label).
+    """
+    end = time.time() + timeout
+    btn, label, state, detail = None, None, "OPEN", ""
+    while time.time() < end:
+        state, detail = classify(pg)
+        if state in ("ALREADY", "SOLD_OUT", "RATELIMIT"):
+            return state, detail, None, None
+        btn, label = find_register_button(pg)
+        if btn:
+            return state, detail, btn, label
+        pg.wait_for_timeout(350)
+    return state, detail, None, None
+
+
 def attempt(pg, url, name, me, args):
     shot = ""
     for tries in range(2):
         try:
-            pg.goto(url, wait_until="domcontentloaded", timeout=60000)
-            pg.wait_for_timeout(2500)
+            pg.goto(url, wait_until="domcontentloaded", timeout=45000)
         except Exception as e:
             return "NAV_ERROR", str(e)[:80], ""
 
-        state, detail = classify(pg)
+        state, detail, btn, label = settle(pg)
+        if logged_out(pg):
+            return "NEEDS_LOGIN", "Luma session is gone — sign in again", ""
         if state == "RATELIMIT":
             if tries == 0:
                 time.sleep(45)
@@ -367,22 +411,20 @@ def attempt(pg, url, name, me, args):
             return "ALREADY", detail, ""
         if state == "SOLD_OUT":
             # try waitlist
-            btn, label = find_register_button(pg)
             if btn and "waitlist" in norm(label):
                 if args.dry:
                     return "WAITLIST_AVAILABLE", label, ""
                 btn.click()
-                pg.wait_for_timeout(2000)
+                pg.wait_for_timeout(1200)
                 fill_form(pg, me)
                 click_submit(pg)
-                pg.wait_for_timeout(2500)
+                pg.wait_for_timeout(2000)
                 return "WAITLISTED", label, ""
             return "SOLD_OUT", detail, ""
 
         if state != "OPEN":
             return state, detail, ""
 
-        btn, label = find_register_button(pg)
         if not btn:
             shot = os.path.join(SHOTS, re.sub(r"[^A-Za-z0-9]", "_", url)[-40:] + ".png")
             try:
@@ -398,11 +440,11 @@ def attempt(pg, url, name, me, args):
             btn.click()
         except Exception as e:
             return "CLICK_FAILED", str(e)[:60], ""
-        pg.wait_for_timeout(2200)
+        pg.wait_for_timeout(1200)
 
         filled = fill_form(pg, me)
         sub = click_submit(pg)
-        pg.wait_for_timeout(3500)
+        pg.wait_for_timeout(2200)
 
         txt = body_text(pg)
         if re.search(r"rate limit", txt):
@@ -433,7 +475,7 @@ if __name__ == "__main__":
     ap.add_argument("mode", choices=["login", "run"])
     ap.add_argument("--input", default=DEFAULT_QUEUE)
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--delay", type=float, default=9.0)
+    ap.add_argument("--delay", type=float, default=5.0)
     ap.add_argument("--day", default="")
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--headless", action="store_true")

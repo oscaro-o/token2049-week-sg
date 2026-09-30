@@ -26,6 +26,38 @@ INSTANT = os.path.join(B.OUT, "free_luma_instant_all.csv")
 DAY_TMP = os.path.join(B.OUT, "_queue_day.csv")
 
 
+def _k(u):
+    import re
+    return re.sub(r"https?://(www\.)?", "", (u or "")).strip("/").lower()
+
+
+def drop_soldout(path):
+    """Skip events the scan already knows are sold out.
+
+    A sold-out page costs a full page load and can never succeed. At ~25-50s
+    each that is pure waste.
+    """
+    try:
+        scan = list(csv.DictReader(open(os.path.join(B.OUT, "luma_scan.csv"),
+                                        encoding="utf-8-sig")))
+        out = {_k(r.get("url")) for r in scan if r.get("sold_out") == "YES"}
+    except Exception:
+        return path
+    if not out:
+        return path
+    rows = list(csv.DictReader(open(path, encoding="utf-8-sig")))
+    keep = [r for r in rows if _k(r.get("register")) not in out]
+    if len(keep) == len(rows):
+        return path
+    tmp = os.path.join(B.OUT, "_queue_run.csv")
+    with open(tmp, "w", newline="", encoding="utf-8-sig") as f:
+        w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
+        w.writeheader()
+        w.writerows(keep)
+    print(f"[i] skipping {len(rows)-len(keep)} events already sold out")
+    return tmp
+
+
 def pick_queue(scope, day):
     """Return (path, human label)."""
     if scope == "instant":
@@ -49,7 +81,7 @@ def main():
     ap.add_argument("--scope", default="all", choices=["all", "instant", "day"])
     ap.add_argument("--day", default="")
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--delay", type=float, default=9.0)
+    ap.add_argument("--delay", type=float, default=5.0)
     ap.add_argument("--dry", action="store_true")
     ap.add_argument("--headless", action="store_true", default=True)
     ap.add_argument("--show", dest="headless", action="store_false",
@@ -60,6 +92,7 @@ def main():
     a = ap.parse_args()
 
     path, label = pick_queue(a.scope, a.day)
+    path = drop_soldout(path)
     total = sum(1 for _ in csv.DictReader(open(path, encoding="utf-8-sig")))
     print(f"[i] scope: {label}  ({total} events)")
     sys.stdout.flush()

@@ -91,6 +91,8 @@ def status():
         phase = "login" if any("opening Chrome" in l for l in lines) else "running"
     elif STATE["last"]:
         phase = "done" if not any("login never" in l or "[x]" in l for l in lines) else "failed"
+    if cnt.get("NEEDS_LOGIN"):
+        phase = "expired"
     finished = sum(v for k, v in cnt.items() if k in DONE)
     return {
         "running": running,

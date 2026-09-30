@@ -454,7 +454,10 @@ render();
     fab.textContent = run ? '\u26a1 ' + (s.finished||0) + '/' + (s.total||0) : '\u26a1 Register';
     el('aggo').disabled = run;
     el('aggo').textContent = run ? 'running\u2026' : 'Register all ' + (s.total||0);
-    if (s.phase === 'login')
+    if (s.phase === 'expired')
+      el('agstat').innerHTML = '<b>Luma session expired.</b> Sign in again, then hit '
+        + 'Register all \u2014 it resumes from where it stopped.';
+    else if (s.phase === 'login')
       el('agstat').innerHTML = '<b>Sign in to Luma</b> \u2014 Chrome is open. '
         + 'The run starts by itself the moment you are in.';
     else if (run)
@@ -472,7 +475,7 @@ render();
     const nice = {REGISTERED:'registered', REQUESTED:'pending host', WAITLISTED:'waitlisted',
                   ALREADY:'already in', SOLD_OUT:'sold out', NEEDS_REVIEW:'needs review',
                   NO_BUTTON:'no button', RATELIMIT:'rate limited', NAV_ERROR:'nav error',
-                  WOULD_REGISTER:'dry run'};
+                  NEEDS_LOGIN:'session expired', WOULD_REGISTER:'dry run'};
     el('agcnt').innerHTML = Object.keys(c).sort((a,b)=>c[b]-c[a])
       .map(k => (nice[k]||k.toLowerCase()) + ' <b>' + c[k] + '</b>').join(' \u00b7 ');
 

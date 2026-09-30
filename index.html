@@ -109,7 +109,7 @@ footer{color:var(--dim);font-size:12px;text-align:center;padding:24px}
 </style></head><body>
 <header>
   <h1>TOKEN2049 Week Singapore 2026 — every free side event</h1>
-  <p>5–11 October · main conference 7–8 Oct at Marina Bay Sands · 2026-09-30 22:51</p>
+  <p>5–11 October · main conference 7–8 Oct at Marina Bay Sands · 2026-10-01 04:19</p>
 </header>
 
 <div class="bar">
@@ -363,7 +363,10 @@ render();
     fab.textContent = run ? '⚡ ' + (s.finished||0) + '/' + (s.total||0) : '⚡ Register';
     el('aggo').disabled = run;
     el('aggo').textContent = run ? 'running…' : 'Register all ' + (s.total||0);
-    if (s.phase === 'login')
+    if (s.phase === 'expired')
+      el('agstat').innerHTML = '<b>Luma session expired.</b> Sign in again, then hit '
+        + 'Register all — it resumes from where it stopped.';
+    else if (s.phase === 'login')
       el('agstat').innerHTML = '<b>Sign in to Luma</b> — Chrome is open. '
         + 'The run starts by itself the moment you are in.';
     else if (run)
@@ -381,7 +384,7 @@ render();
     const nice = {REGISTERED:'registered', REQUESTED:'pending host', WAITLISTED:'waitlisted',
                   ALREADY:'already in', SOLD_OUT:'sold out', NEEDS_REVIEW:'needs review',
                   NO_BUTTON:'no button', RATELIMIT:'rate limited', NAV_ERROR:'nav error',
-                  WOULD_REGISTER:'dry run'};
+                  NEEDS_LOGIN:'session expired', WOULD_REGISTER:'dry run'};
     el('agcnt').innerHTML = Object.keys(c).sort((a,b)=>c[b]-c[a])
       .map(k => (nice[k]||k.toLowerCase()) + ' <b>' + c[k] + '</b>').join(' · ');
 
