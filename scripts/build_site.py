@@ -7,6 +7,11 @@ Everything is inlined into one HTML file so it can be dropped on any static host
 ( trilumi.xyz, GitHub Pages, S3, or just opened from disk ).
 
     python build_site.py
+
+Canonial / OG URL is set by env so the same file can be published at several
+addresses without editing the template:
+
+    SITE_URL=https://trilumi.xyz/token2049/ python build_site.py
 """
 import csv, html, json, os, re
 from datetime import datetime
@@ -15,6 +20,9 @@ BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(BASE, "outputs")
 SITE = os.path.join(BASE, "site")
 os.makedirs(SITE, exist_ok=True)
+
+SITE_URL = os.environ.get(
+    "SITE_URL", "https://oscaro-o.github.io/token2049-week-sg/").strip()
 
 
 def load(name):
@@ -82,6 +90,18 @@ HTML = """<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TOKEN2049 Week Singapore 2026 — free side events</title>
+<link rel="canonical" href="__SITE_URL__">
+<meta name="description" content="__N_FREE__ free side events during TOKEN2049 Week Singapore 2026, verified one by one. __N_INSTANT__ join instantly, __N_APPROVAL__ need host approval. Filter by day, open in batches, split the work across your team.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="TOKEN2049 Week Singapore 2026 — free side events">
+<meta property="og:description" content="__N_FREE__ free side events, verified. __N_INSTANT__ one-click, __N_APPROVAL__ need host approval.">
+<meta property="og:url" content="__SITE_URL__">
+<meta property="og:site_name" content="Trilumi">
+<meta property="og:locale" content="en_HK">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TOKEN2049 Week Singapore 2026 — free side events">
+<meta name="twitter:description" content="__N_FREE__ free side events, verified. __N_INSTANT__ one-click, __N_APPROVAL__ need host approval.">
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--line:#e4e7ec;--ink:#111620;--dim:#6b7280;
 --a:#1f5f8b;--a2:#0f3d5c;--ok:#0a7d4b;--warn:#b45309;--bad:#a32121;--chip:#eef2f7}
@@ -209,6 +229,7 @@ footer{color:var(--dim);font-size:12px;text-align:center;padding:24px}
   Data: official TOKEN2049 Week side-event API + a per-page scan of every Luma listing.
   “free” = listed free by the organiser; the one-click / approval / sold-out badge is read from the live Luma page.
   <br>Done-ticks live in your own browser only — share the link freely, each teammate keeps their own progress.
+  <br><br>Built by <a href="https://trilumi.xyz/" target="_blank" rel="noopener">Trilumi Limited</a> · Hong Kong
 </footer>
 
 <script>
@@ -320,7 +341,11 @@ HTML = (HTML.replace("__DATA__", DATA)
             .replace("__N_FREE__", str(STATS["free"]))
             .replace("__N_LUMA__", str(STATS["luma"]))
             .replace("__N_INSTANT__", str(STATS["instant"]))
-            .replace("__N_APPROVAL__", str(STATS["approval"])))
+            .replace("__N_APPROVAL__", str(STATS["approval"]))
+            .replace("__SITE_URL__", SITE_URL))
+
+_leftover = sorted(set(re.findall(r"__[A-Z][A-Z_]*__", HTML)))
+assert not _leftover, _leftover
 
 p = os.path.join(SITE, "index.html")
 open(p, "w", encoding="utf-8").write(HTML)
