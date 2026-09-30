@@ -50,9 +50,12 @@ Click the **⚡ Register** button bottom-right, pick a scope, hit *Register all*
 
 Stop any time; progress is kept and the next start resumes. Scopes: all 320 / the 38 one-click / a single day.
 
-**Why a local helper instead of a plain web button?** A page on github.io cannot click into luma.com — different origin, and it has no access to your Luma session. That is a hard browser boundary. The button talks to a helper on your own machine that drives your own logged-in Chrome. Nothing is uploaded anywhere.
+**Why a local helper instead of a plain web button?** Two hard browser boundaries, neither of which is a bug:
 
-The hosted page probes `127.0.0.1:8765` on load: agent running → the button lights up; agent off → it stays grey and tells you how to start it.
+1. a page on another origin cannot click into `luma.com`, and it has no access to your Luma session;
+2. Chrome's Local Network Access blocks any *website* from reaching `127.0.0.1` — so the hosted copy can never drive the helper either.
+
+So the agent serves its own copy of the board at `http://127.0.0.1:8765`, and that is where the button is live. The hosted copy stays read-only — that is the one you share with the team. Nothing is uploaded anywhere.
 
 Done-ticks are stored in **your own browser** (`localStorage`), so everyone keeps their own progress. Share the link freely.
 
