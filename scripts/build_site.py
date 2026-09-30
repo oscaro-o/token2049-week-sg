@@ -13,7 +13,7 @@ addresses without editing the template:
 
     SITE_URL=https://trilumi.xyz/token2049/ python build_site.py
 """
-import csv, html, json, os, re
+import csv, html, json, os, re, sys
 from datetime import datetime
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -473,7 +473,7 @@ render();
     el('agcnt').innerHTML = Object.keys(c).sort((a,b)=>c[b]-c[a])
       .map(k => (nice[k]||k.toLowerCase()) + ' <b>' + c[k] + '</b>').join(' \u00b7 ');
 
-    el('agtail').textContent = (s.tail||[]).slice(-9).join('\n');
+    el('agtail').textContent = (s.tail||[]).slice(-9).join(String.fromCharCode(10));
     el('aglog').href = AGENT + '/api/log';
 
     // tick off everything the agent already finished
@@ -515,6 +515,20 @@ HTML = (HTML.replace("__DATA__", DATA)
 
 _leftover = sorted(set(re.findall(r"__[A-Z][A-Z_]*__", HTML)))
 assert not _leftover, _leftover
+
+# --- syntax-check every inline script -------------------------------------
+# A stray \n inside a Python triple-quoted string silently becomes a real
+# newline inside a JS string literal and kills the whole block at runtime.
+# Node catches it at build time instead.
+import shutil, subprocess, tempfile
+_node = shutil.which("node")
+if _node:
+    for i, blk in enumerate(re.findall(r"<script>(.*?)</script>", HTML, re.S)):
+        tmp = os.path.join(tempfile.gettempdir(), f"_tk2049_{i}.js")
+        open(tmp, "w", encoding="utf-8").write(blk)
+        r = subprocess.run([_node, "--check", tmp], capture_output=True, text=True)
+        if r.returncode:
+            sys.exit(f"!! JS syntax error in script block {i}:\n{r.stderr[:800]}")
 
 p = os.path.join(SITE, "index.html")
 open(p, "w", encoding="utf-8").write(HTML)

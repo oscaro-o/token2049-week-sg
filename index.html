@@ -109,7 +109,7 @@ footer{color:var(--dim);font-size:12px;text-align:center;padding:24px}
 </style></head><body>
 <header>
   <h1>TOKEN2049 Week Singapore 2026 — every free side event</h1>
-  <p>5–11 October · main conference 7–8 Oct at Marina Bay Sands · 2026-09-30 22:35</p>
+  <p>5–11 October · main conference 7–8 Oct at Marina Bay Sands · 2026-09-30 22:45</p>
 </header>
 
 <div class="bar">
@@ -382,8 +382,7 @@ render();
     el('agcnt').innerHTML = Object.keys(c).sort((a,b)=>c[b]-c[a])
       .map(k => (nice[k]||k.toLowerCase()) + ' <b>' + c[k] + '</b>').join(' · ');
 
-    el('agtail').textContent = (s.tail||[]).slice(-9).join('
-');
+    el('agtail').textContent = (s.tail||[]).slice(-9).join(String.fromCharCode(10));
     el('aglog').href = AGENT + '/api/log';
 
     // tick off everything the agent already finished
