@@ -215,6 +215,29 @@ def click_submit(pg):
 
 
 # ----------------------------------------------------------------- main flows
+def check_login(timeout=25000):
+    """Headless probe: is the saved profile actually signed in to Luma?
+
+    Returns True / False. Launches Chromium for a few seconds, so call it
+    sparingly (once per run, not per event).
+    """
+    try:
+        with sync_playwright() as p:
+            ctx = p.chromium.launch_persistent_context(
+                PROFILE, headless=True, viewport={"width": 900, "height": 700},
+                user_agent=UA, args=["--disable-blink-features=AutomationControlled"])
+            pg = ctx.pages[0] if ctx.pages else ctx.new_page()
+            pg.goto("https://luma.com/dashboard", wait_until="domcontentloaded",
+                    timeout=timeout)
+            pg.wait_for_timeout(1500)
+            ok = "signin" not in (pg.url or "").lower()
+            ctx.close()
+            return ok
+    except Exception as e:
+        print("[!] login check failed:", str(e)[:120])
+        return False
+
+
 def do_login(wait_minutes=15):
     """Open Chrome on the Luma sign-in page and detect the login automatically.
 
@@ -254,6 +277,7 @@ def do_login(wait_minutes=15):
     else:
         print(f"[!] no login detected within {wait_minutes} min. "
               f"Run this again and sign in (or press ENTER next time).")
+    return ok
 
 
 DONE_STATES = {"REGISTERED", "REQUESTED", "WAITLISTED", "ALREADY", "SOLD_OUT",

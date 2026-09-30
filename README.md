@@ -36,6 +36,24 @@ So we pulled the data, verified each Luma page, and put it in one page you can s
 2. **Filter.** Pick a day, or switch to `one-click only` if you want the 38 that confirm instantly.
 3. **Register.** Hit *Open visible ↗* to open 40 tabs at a time (350 ms apart), or *Copy links* to paste into a group chat and split the work.
 
+## One-button registration
+
+```bash
+python scripts/serve.py           # opens http://127.0.0.1:8765/
+```
+
+Click the **⚡ Register** button bottom-right, pick a scope, hit *Register all*. It then:
+
+1. checks whether your saved Chrome profile is signed in to Luma
+2. if not, opens Chrome on the sign-in page — **the run starts by itself the moment you are in**, no second click
+3. walks the queue, filling and submitting each form, with live progress in the panel
+
+Stop any time; progress is kept and the next start resumes. Scopes: all 320 / the 38 one-click / a single day.
+
+**Why a local helper instead of a plain web button?** A page on github.io cannot click into luma.com — different origin, and it has no access to your Luma session. That is a hard browser boundary. The button talks to a helper on your own machine that drives your own logged-in Chrome. Nothing is uploaded anywhere.
+
+The hosted page probes `127.0.0.1:8765` on load: agent running → the button lights up; agent off → it stays grey and tells you how to start it.
+
 Done-ticks are stored in **your own browser** (`localStorage`), so everyone keeps their own progress. Share the link freely.
 
 - Badge **instant** = joins immediately
@@ -64,8 +82,11 @@ scripts/
   build_all_queue.py            merge -> registration queue
   enrich.py                     join queue with scan results
   build_site.py                 emit index.html
-  luma_bot.py                   semi-automatic registration bot (Playwright)
+  luma_bot.py                   registration engine (Playwright, persistent profile)
+  one_click.py                  ensure-login-then-register in one command
+  serve.py                      local agent: serves the board + /api/start|stop|status
   submit_side_event.py          pre-fill the official "host your own side event" forms
+  upload_ftp.py                 push the board to Hostinger/trilumi.xyz over FTP TLS
   refresh.py                    re-pull API, diff, rebuild
 ```
 

@@ -59,7 +59,8 @@ for r in free:
     else:
         st = "unknown"
     items.append({
-        "d": r.get("day", ""),
+        "k": r.get("date", ""),          # ISO date — used for every sort, never the label
+        "d": r.get("day", ""),           # display label, e.g. "Tue 6 Oct"
         "s": r.get("start", ""),
         "e": r.get("end", ""),
         "n": r.get("name", ""),
@@ -73,7 +74,9 @@ for r in free:
         "th": [t for t in (r.get("themes") or "").split(",") if t],
     })
 
-items.sort(key=lambda x: (-x["f"], x["d"], x["s"]))
+# "Mon 5 Oct" sorts alphabetically (Fri, Mon, Sat, Sun, Thu, Tue, Wed) — always
+# sort on the ISO date in "k", never on the display label in "d".
+items.sort(key=lambda x: (-x["f"], x["k"], x["s"]))
 
 DATA = json.dumps(items, ensure_ascii=False)
 STATS = {
@@ -136,6 +139,36 @@ border-radius:8px;padding:12px 14px;margin-bottom:16px;font-size:14px}
 .chips button{background:#fff;border:1px solid var(--line);border-radius:20px;padding:5px 12px;
 font:inherit;font-size:13px;cursor:pointer;color:var(--a2)}
 .chips button.on{background:var(--a);border-color:var(--a);color:#fff}
+.agfab{position:fixed;right:16px;bottom:16px;z-index:99;background:var(--a);color:#fff;
+border:0;border-radius:24px;padding:11px 16px;font:inherit;font-weight:700;cursor:pointer;
+box-shadow:0 6px 18px rgba(31,95,139,.35)}
+.agfab:hover{background:var(--a2)}
+.ag{position:fixed;right:16px;bottom:66px;z-index:99;width:340px;max-height:76vh;overflow:auto;
+background:#fff;border:1px solid var(--line);border-radius:12px;font-size:13px;
+box-shadow:0 10px 34px rgba(0,0,0,.2)}
+.ag-h{display:flex;align-items:center;gap:8px;padding:10px 13px;border-bottom:1px solid var(--line);
+background:#f2f7fb;border-radius:12px 12px 0 0;position:sticky;top:0}
+.ag-h b{flex:1}
+.ag-h span{cursor:pointer;color:var(--dim);font-size:15px}
+.ag-b{padding:12px 13px 14px}
+.agbtn{background:var(--a);color:#fff;border:0;border-radius:9px;padding:10px;
+font:inherit;font-weight:700;cursor:pointer;white-space:nowrap}
+.agbtn[disabled]{opacity:.45;cursor:default}
+.agbtn.g{background:#fff;color:var(--a);border:1px solid var(--line);padding:7px 13px;font-weight:600}
+.agrow{display:flex;gap:8px;align-items:center;margin-bottom:9px}
+.agrow select{flex:1;min-width:0;padding:7px;border:1px solid var(--line);border-radius:8px;
+font:inherit;background:#fff;color:var(--ink)}
+.agbar{height:7px;background:var(--chip);border-radius:9px;overflow:hidden;margin:2px 0 9px}
+.agbar i{display:block;height:100%;width:0;background:var(--ok);transition:width .4s}
+.agcnt{font-size:12px;color:var(--dim);line-height:1.6}
+.agcnt b{color:var(--ink)}
+pre.agt{background:#0f1720;color:#cfe3f2;padding:9px;border-radius:8px;font-size:11px;
+max-height:140px;overflow:auto;white-space:pre-wrap;margin:6px 0 0}
+.agoff{font-size:12px;color:var(--dim);line-height:1.65}
+.agoff b{color:var(--ink)}
+.agoff code{background:var(--chip);padding:1px 5px;border-radius:4px;font-size:11px}
+@media(max-width:640px){.ag{width:calc(100vw - 32px)}}
+
 table{width:100%;border-collapse:collapse;background:var(--card);
 border:1px solid var(--line);border-radius:10px;overflow:hidden}
 th{position:sticky;top:52px;background:#f1f3f7;text-align:left;padding:9px 10px;
@@ -238,7 +271,9 @@ const tb = document.getElementById('tb');
 const done = new Set(JSON.parse(localStorage.getItem('tk2049done') || '[]'));
 const save = () => localStorage.setItem('tk2049done', JSON.stringify([...done]));
 
-const days = [...new Set(DATA.map(d=>d.d))].sort();
+// days ordered by ISO date (d.k), not by the "Tue 6 Oct" label
+const days = [...new Map(DATA.filter(d=>d.k).sort((a,b)=>a.k.localeCompare(b.k)||a.s.localeCompare(b.s))
+  .map(d=>[d.d,d.k])).keys()];
 const cats = [...new Set(DATA.map(d=>d.c))].sort();
 const fill = (id, arr) => { const s=document.getElementById(id);
   arr.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=v;s.appendChild(o);}); };
@@ -258,8 +293,8 @@ function render(){
   view = DATA.filter(d =>
     (!q || (d.n+' '+d.o+' '+d.v+' '+d.th.join(' ')).toLowerCase().includes(q)) &&
     (!fd || d.d===fd) && (!fc || d.c===fc) && (!fs || d.st===fs) && (!fp || d.p===fp));
-  view.sort(fo==='time' ? (a,b)=> (a.d+a.s).localeCompare(b.d+b.s)
-                        : (a,b)=> b.f-a.f || (a.d+a.s).localeCompare(b.d+b.s));
+  const clock = (a,b)=> (a.k||'9').localeCompare(b.k||'9') || (a.s||'').localeCompare(b.s||'');
+  view.sort(fo==='time' ? clock : (a,b)=> b.f-a.f || clock(a,b));
   tb.innerHTML = view.map(d => `<tr class="${done.has(d.u)?'done':''}" data-u="${d.u}">
     <td class="w"><b>${esc(d.d)}</b><br>${esc(d.s)}–${esc(d.e)}</td>
     <td><div class="nm">${esc(d.n)}</div>
@@ -333,6 +368,140 @@ document.getElementById('csv').onclick = () => {
 };
 
 render();
+</script>
+
+<!-- ------------------------------------------------------------------ -->
+<!-- registration agent bridge                                          -->
+<!-- The page itself can never click into luma.com (different origin, and -->
+<!-- it has no access to your Luma session). It talks to a small helper   -->
+<!-- running on your own machine:  python scripts/serve.py                -->
+<!-- Offline, the button stays grey and tells you how to start it.        -->
+<!-- ------------------------------------------------------------------ -->
+<button class="agfab" id="agfab" title="Registration agent">&#9889; Register</button>
+<div class="ag" id="ag" hidden>
+  <div class="ag-h"><b>Registration agent</b><span id="agx">&#10005;</span></div>
+  <div class="ag-b">
+    <div id="agstat" class="agcnt">connecting&hellip;</div>
+    <div class="agrow">
+      <select id="agscope">
+        <option value="all">all free events</option>
+        <option value="instant">one-click only</option>
+        <optgroup label="single day" id="agdays"></optgroup>
+      </select>
+      <button class="agbtn" id="aggo">Register all</button>
+    </div>
+    <div class="agbar"><i id="agfill"></i></div>
+    <div id="agcnt" class="agcnt"></div>
+    <div class="agrow">
+      <button class="agbtn g" id="agstop">Stop</button>
+      <a class="agbtn g" id="aglog" href="#" target="_blank"
+         style="text-decoration:none;display:inline-block">log &#8599;</a>
+    </div>
+    <pre class="agt" id="agtail"></pre>
+    <div id="agoff" class="agoff" hidden>
+      <b>Agent not running.</b><br>
+      This button drives a small program on your own machine &mdash; a web page
+      cannot register you on Luma by itself (different origin, no access to your
+      login).<br><br>
+      On this PC run:<br>
+      <code>python scripts/serve.py</code><br>
+      or double-click <code>0-&#19968;&#38190;&#27880;&#20876;&#20840;&#37096;.bat</code>,
+      then reload this page.
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const AGENT = 'http://127.0.0.1:8765';
+  const el = id => document.getElementById(id);
+  const box = el('ag'), fab = el('agfab');
+  let online = false, timer = null, open = false;
+
+  const daysSel = el('agdays');
+  days.forEach(d => { const o = document.createElement('option');
+    o.value = 'day|' + d; o.textContent = d; daysSel.appendChild(o); });
+
+  fab.onclick = () => { open = !open; box.hidden = !open; if (open) poll(); };
+  el('agx').onclick = () => { open = false; box.hidden = true; };
+
+  async function jfetch(url, opt){
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), 2000);
+    try { const r = await fetch(url, Object.assign({signal:c.signal}, opt||{}));
+          clearTimeout(t); return await r.json(); }
+    catch(e){ clearTimeout(t); return null; }
+  }
+
+  function paint(s){
+    el('agoff').hidden = !!s;
+    el('agstat').hidden = !s;
+    el('agtail').hidden = !s;
+    if (!s){
+      online = false;
+      fab.textContent = '\u2699 agent';
+      el('aggo').disabled = true;
+      el('aggo').textContent = 'Register all';
+      el('agcnt').textContent = '';
+      el('agfill').style.width = '0';
+      return;
+    }
+    online = true;
+    const run = s.running;
+    fab.textContent = run ? '\u26a1 ' + (s.finished||0) + '/' + (s.total||0) : '\u26a1 Register';
+    el('aggo').disabled = run;
+    el('aggo').textContent = run ? 'running\u2026' : 'Register all ' + (s.total||0);
+    if (s.phase === 'login')
+      el('agstat').innerHTML = '<b>Sign in to Luma</b> \u2014 Chrome is open. '
+        + 'The run starts by itself the moment you are in.';
+    else if (run)
+      el('agstat').innerHTML = '<b>' + (s.finished||0) + '</b> of <b>' + (s.total||0)
+        + '</b> done \u00b7 ' + (s.left||0) + ' left \u00b7 started ' + (s.started||'');
+    else
+      el('agstat').innerHTML = (s.attempted ? '<b>' + (s.finished||0)
+        + '</b> registered of <b>' + (s.total||0) + '</b> \u00b7 last run ' + (s.started||'')
+        : 'Ready \u2014 <b>' + (s.total||0) + '</b> events queued.');
+
+    const tot = Math.max(1, s.total||1);
+    el('agfill').style.width = Math.min(100, (s.finished||0) / tot * 100) + '%';
+
+    const c = s.counts || {};
+    const nice = {REGISTERED:'registered', REQUESTED:'pending host', WAITLISTED:'waitlisted',
+                  ALREADY:'already in', SOLD_OUT:'sold out', NEEDS_REVIEW:'needs review',
+                  NO_BUTTON:'no button', RATELIMIT:'rate limited', NAV_ERROR:'nav error',
+                  WOULD_REGISTER:'dry run'};
+    el('agcnt').innerHTML = Object.keys(c).sort((a,b)=>c[b]-c[a])
+      .map(k => (nice[k]||k.toLowerCase()) + ' <b>' + c[k] + '</b>').join(' \u00b7 ');
+
+    el('agtail').textContent = (s.tail||[]).slice(-9).join('\n');
+    el('aglog').href = AGENT + '/api/log';
+
+    // tick off everything the agent already finished
+    (s.recent||[]).forEach(r => { if (r.u) done.add(r.u); });
+    if (run) render();
+  }
+
+  async function poll(){
+    if (timer) clearTimeout(timer);
+    const s = await jfetch(AGENT + '/api/status');
+    paint(s);
+    timer = setTimeout(poll, online ? 2500 : 10000);
+  }
+
+  el('aggo').onclick = async () => {
+    const v = el('agscope').value;
+    const body = v.startsWith('day|') ? {scope:'day', day:v.slice(4)} : {scope:v};
+    await jfetch(AGENT + '/api/start', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+    open = true; box.hidden = false; poll();
+  };
+  el('agstop').onclick = async () => {
+    await jfetch(AGENT + '/api/stop', {method:'POST'}); poll();
+  };
+  el('aglog').href = AGENT + '/api/log';
+
+  poll();
+})();
 </script>
 </body></html>"""
 
